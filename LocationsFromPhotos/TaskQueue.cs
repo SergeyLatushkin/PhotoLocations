@@ -10,7 +10,6 @@ public class TaskQueue
     private bool _isLastBatch;
     private readonly object _lock = new();
 
-    // Событие для уведомления, что все задачи завершены
     private readonly TaskCompletionSource<bool> _completionSource = new();
 
     public TaskQueue(int maxConcurrentTasks)
@@ -37,14 +36,13 @@ public class TaskQueue
     {
         var tasks = new List<Task>();
 
-        // Запускаем обработку задач в фоновом режиме
         for (int i = 0; i < _maxConcurrentTasks; i++)
         {
             tasks.Add(ProcessQueue());
         }
 
-        await Task.WhenAll(tasks); // Ждем, пока все задачи завершатся
-        _completionSource.SetResult(true); // Завершаем, если всё обработано
+        await Task.WhenAll(tasks);
+        _completionSource.SetResult(true);
     }
 
     private async Task ProcessQueue()
@@ -57,19 +55,17 @@ public class TaskQueue
                 Console.WriteLine($"...number of photos waiting to receive GEO data: {_taskQueue.Reader.Count}{new string(' ', Console.WindowWidth)}");
             }
 
-            // Ограничиваем количество одновременно выполняющихся задач
             if (_currentRunningTasks >= _maxConcurrentTasks)
             {
-                await Task.Delay(100); // Ожидаем, если достигли максимума
+                await Task.Delay(100);
                 continue;
             }
 
-            // Увеличиваем счетчик выполняемых задач
             _currentRunningTasks++;
 
             try
             {
-                await task(); // Выполняем задачу
+                await task();
             }
             catch (Exception ex)
             {
@@ -77,7 +73,6 @@ public class TaskQueue
             }
             finally
             {
-                // Уменьшаем счетчик и проверяем завершение всех задач
                 _currentRunningTasks--;
                 CheckForCompletion();
             }
@@ -88,14 +83,12 @@ public class TaskQueue
     {
         lock (_lock)
         {
-            // Если все задачи завершены и в очереди больше нет задач
             if (_isLastBatch && _currentRunningTasks == 0 && _taskQueue.Reader.Count == 0)
             {
-                _completionSource.SetResult(true); // Оповещаем о завершении всех задач
+                _completionSource.SetResult(true);
             }
         }
     }
 
-    // Метод для ожидания завершения всех задач
     public Task WaitUntilAllTasksCompleted() => _completionSource.Task;
 }
